@@ -5,7 +5,7 @@ import {
   X, Save, Check, MapPin, ToggleLeft, ToggleRight,
   FileText, Paperclip, Users, Tag, Eye, EyeOff, Copy, Trash,
   AlertTriangle, Bell, Flag, Car, Dumbbell, Utensils, Coffee,
-  MoreVertical, CheckSquare, XCircle, HelpCircle, MousePointer2
+  MoreVertical, CheckSquare, XCircle, HelpCircle, MousePointer2, ExternalLink
 } from 'lucide-react';
 
 interface CalendarPageProps {
@@ -44,6 +44,13 @@ const addMonths = (date: Date, months: number) => { const r = new Date(date); r.
 const startOfWeek = (date: Date) => { const d = new Date(date); const day = d.getDay(); const diff = d.getDate() - day; return new Date(d.setDate(diff)); };
 const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+// Check if event occurs on a specific day (for multi-day support)
+const isEventOnDay = (event: Event, date: Date) => {
+    const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+    const dayEnd = new Date(date); dayEnd.setHours(23,59,59,999);
+    return event.start <= dayEnd && event.end >= dayStart;
+};
 
 // --- NLP Utility ---
 const parseNaturalLanguage = (input: string): Partial<Event> => {
@@ -124,7 +131,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
     status: 'confirmed',
     priority: 'medium',
     isAllDay: false,
-    bufferMinutes: 0
+    bufferMinutes: 0,
+    reminders: []
   });
 
   // Events State
@@ -179,6 +187,13 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
      setIsCreateModalOpen(false);
   };
 
+  const handleDeleteEvent = () => {
+      if(editingEvent.id && confirm("Are you sure you want to delete this event?")) {
+          setEvents(prev => prev.filter(e => e.id !== editingEvent.id));
+          setIsCreateModalOpen(false);
+      }
+  };
+
   const handleDeleteSelected = () => {
       if (confirm(`Delete ${selectedEvents.length} events?`)) {
           setEvents(prev => prev.filter(e => !selectedEvents.includes(e.id)));
@@ -229,7 +244,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
   };
 
   // --- Drag & Drop Implementation for Grid ---
-  // Simplified logic: dragging updates the state, onMouseUp commits it.
   const handleGridMouseDown = (e: React.MouseEvent, eventId: string, action: 'move' | 'resize') => {
       if (isSelectionMode) {
           e.stopPropagation();
@@ -250,7 +264,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
           if (dragAction === 'move') {
               const duration = evt.end.getTime() - evt.start.getTime();
               const newStart = new Date(timeSlot);
-              // Snap to 15 mins
               const remainder = newStart.getMinutes() % 15;
               newStart.setMinutes(newStart.getMinutes() - remainder);
               const newEnd = new Date(newStart.getTime() + duration);
@@ -259,7 +272,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
           
           if (dragAction === 'resize') {
               const newEnd = new Date(timeSlot);
-              // Minimum 15 mins
               if (newEnd.getTime() - evt.start.getTime() < 15 * 60000) return evt;
               return { ...evt, end: newEnd };
           }
@@ -277,6 +289,177 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
   };
 
   // --- Renderers ---
+
+  // 1. Year View
+  const renderYearView = () => {
+      const currentYear = currentDate.getFullYear();
+      const months = Array.from({ length: 12 }, (_, i) => i);
+
+      return (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20 overflow-y-auto h-[calc(100vh-200px)]">
+              {months.map(m => {
+                  const dInM = getDaysInMonth(currentYear, m);
+                  const startD = getDayOfWeek(currentYear, m, 1);
+                  const mName = new Date(currentYear, m, 1).toLocaleDateString(undefined, { month: 'long' });
+
+                  return (
+                      <div 
+                        key={m} 
+                        className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => { setCurrentDate(new Date(currentYear, m, 1)); setCurrentView('month'); }}
+                      >
+                          <h3 className="text-center font-bold text-brand-text mb-2 text-sm">{mName}</h3>
+                          <div className="grid grid-cols-7 gap-1 text-[8px] text-center text-gray-400 mb-1">
+                              {['S','M','T','W','T','F','S'].map(d => <span key={d}>{d}</span>)}
+                          </div>
+                          <div className="grid grid-cols-7 gap-y-1 gap-x-0.5">
+                              {Array.from({length: startD}).map((_, i) => <div key={`e-${i}`} />)}
+                              {Array.from({length: dInM}).map((_, i) => {
+                                  const day = i + 1;
+                                  const date = new Date(currentYear, m, day);
+                                  const dayEvents = events.filter(e => isEventOnDay(e, date));
+                                  const isToday = isSameDay(date, new Date());
+                                  
+                                  // Simple dot for events
+                                  return (
+                                      <div key={day} className="flex flex-col items-center">
+                                          <div className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] 
+                                              ${isToday ? 'bg-brand-primary text-white' : 'text-gray-600'}`}>
+                                              {day}
+                                          </div>
+                                          <div className="flex gap-0.5 mt-0.5 h-1">
+                                              {dayEvents.length > 0 && <div className={`w-1 h-1 rounded-full ${dayEvents[0].color.split(' ')[0].replace('bg-', 'bg-')}`}></div>}
+                                              {dayEvents.length > 1 && <div className="w-1 h-1 rounded-full bg-gray-300"></div>}
+                                          </div>
+                                      </div>
+                                  )
+                              })}
+                          </div>
+                      </div>
+                  )
+              })}
+          </div>
+      );
+  };
+
+  // 2. Agenda View
+  const renderAgendaView = () => {
+    // Sort events
+    const sortedEvents = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
+    // Group by Date
+    const grouped: { [key: string]: Event[] } = {};
+    sortedEvents.forEach(e => {
+        const d = new Date(e.start);
+        d.setHours(0,0,0,0);
+        const key = d.toISOString();
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(e);
+    });
+    
+    // Sort keys
+    const sortedKeys = Object.keys(grouped).sort();
+    // Filter to start from current view date roughly? Or just show all. Let's show all for now but scroll to today.
+    
+    return (
+        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-200px)] overflow-y-auto">
+            {sortedKeys.length === 0 ? (
+                <div className="p-10 text-center text-gray-400">No events found.</div>
+            ) : (
+                <div className="divide-y divide-gray-100 pb-20">
+                    {sortedKeys.map(dateStr => {
+                        const date = new Date(dateStr);
+                        const isPast = date < new Date(new Date().setHours(0,0,0,0));
+                        
+                        return (
+                            <div key={dateStr} className={`p-0 ${isPast ? 'opacity-60' : ''}`}>
+                                <div className="bg-purple-50/50 px-6 py-2 text-xs font-bold text-brand-text uppercase tracking-wider sticky top-0 backdrop-blur-sm z-10 border-b border-gray-100">
+                                    {date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                                </div>
+                                <div className="px-4 py-2">
+                                    {grouped[dateStr].map(e => (
+                                        <div 
+                                            key={e.id} 
+                                            onClick={() => { setEditingEvent(e); setIsCreateModalOpen(true); }}
+                                            className="flex gap-4 py-3 hover:bg-gray-50 rounded-lg px-2 transition-colors cursor-pointer group"
+                                        >
+                                            <div className="flex flex-col items-end min-w-[70px] text-right pt-1">
+                                                {e.isAllDay ? (
+                                                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">ALL DAY</span>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-sm font-bold text-gray-800">{formatTime(e.start)}</span>
+                                                        <span className="text-xs text-gray-400">{formatTime(e.end)}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <div className={`w-1.5 rounded-full self-stretch ${e.color.split(' ')[0]}`}></div>
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                                                    {e.title}
+                                                    {e.priority === 'high' && <Flag size={12} className="text-red-500 fill-red-500"/>}
+                                                </h4>
+                                                {e.location && (
+                                                    <a href={`https://maps.google.com/?q=${e.location}`} target="_blank" rel="noreferrer" onClick={ev => ev.stopPropagation()} className="text-xs text-brand-primary mt-1 flex items-center gap-1 hover:underline">
+                                                        <MapPin size={12} /> {e.location}
+                                                    </a>
+                                                )}
+                                                {e.description && (
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">{e.description}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+  };
+
+  // 3. Schedule View (Compressed Timeline)
+  const renderScheduleView = () => {
+    // Similar to agenda but emphasizing time gaps visually
+    const sortedEvents = [...events].filter(e => e.end >= new Date(new Date().setHours(0,0,0,0))).sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    return (
+       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 min-h-[50vh] relative h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="absolute top-6 bottom-6 left-[4.5rem] w-0.5 bg-gray-200"></div>
+          {sortedEvents.map((e, i) => (
+             <div key={e.id} className="relative flex gap-6 mb-8 group" onClick={() => { setEditingEvent(e); setIsCreateModalOpen(true); }}>
+                <div className="w-14 text-right pt-1 flex flex-col items-end">
+                   <div className="font-bold text-gray-800 text-lg leading-none">{e.start.getDate()}</div>
+                   <div className="text-[10px] text-gray-500 uppercase">{e.start.toLocaleDateString(undefined, { month: 'short' })}</div>
+                   {!e.isAllDay && <div className="text-xs text-brand-primary mt-1 font-mono">{formatTime(e.start)}</div>}
+                </div>
+                
+                <div className={`absolute left-[4.2rem] w-3 h-3 rounded-full border-2 border-white ring-2 ${e.priority === 'high' ? 'ring-red-400 bg-red-400' : 'ring-brand-primary bg-brand-primary'} mt-2 z-10`}></div>
+                
+                <div className={`flex-1 rounded-xl p-4 ${e.color} shadow-sm transform transition-transform group-hover:scale-[1.02] cursor-pointer`}>
+                   <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-bold">{e.title}</h4>
+                      {e.isAllDay ? (
+                          <span className="text-[10px] font-bold opacity-60 bg-black/5 px-2 py-0.5 rounded">All Day</span>
+                      ) : (
+                          <span className="text-[10px] opacity-70 flex items-center gap-1"><Clock size={10}/> {Math.round((e.end.getTime() - e.start.getTime())/60000)}m</span>
+                      )}
+                   </div>
+                   {e.location && (
+                       <div className="flex items-center gap-1 text-xs opacity-90 border-t border-black/5 pt-2 mt-1">
+                           <MapPin size={12} /> {e.location}
+                       </div>
+                   )}
+                </div>
+             </div>
+          ))}
+          {sortedEvents.length === 0 && <div className="text-center text-gray-400 mt-10">Nothing scheduled coming up.</div>}
+       </div>
+    );
+  };
+
+  // 4. Time Grid View (Day/Week)
   const renderTimeGridView = (daysToShow: number) => {
     const start = addDays(startOfWeek(new Date(currentDate)), daysToShow === 5 ? 1 : 0);
     const viewDates = Array.from({ length: daysToShow }, (_, i) => addDays(start, i));
@@ -284,7 +467,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
 
     return (
       <div 
-        className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-320px)] overflow-hidden select-none"
+        className="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-250px)] overflow-hidden select-none"
         onMouseUp={handleGridMouseUp}
         onMouseLeave={handleGridMouseUp}
       >
@@ -304,8 +487,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
              <div className="w-14 flex-shrink-0 border-r border-gray-100 flex items-center justify-center p-1 text-[10px] text-gray-400 font-bold">ALL DAY</div>
              {viewDates.map((date, i) => (
                 <div key={i} className="flex-1 border-r border-gray-100 p-1 flex flex-col gap-1">
-                    {events.filter(e => e.isAllDay && isSameDay(e.start, date)).map(e => (
-                        <div key={e.id} className={`${e.color} text-[10px] px-1 rounded truncate font-bold border border-black/5`}>{e.title}</div>
+                    {events.filter(e => e.isAllDay && isEventOnDay(e, date)).map(e => (
+                        <div key={e.id} className={`${e.color} text-[10px] px-1 rounded truncate font-bold border border-black/5 cursor-pointer`}
+                             onClick={() => { setEditingEvent(e); setIsCreateModalOpen(true); }}
+                        >
+                            {e.title}
+                        </div>
                     ))}
                 </div>
              ))}
@@ -325,28 +512,50 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
 
               {/* Columns */}
               {viewDates.map((date, colIndex) => {
-                 const dayEvents = events.filter(e => !e.isAllDay && isSameDay(e.start, date));
+                 const dayEvents = events.filter(e => !e.isAllDay && isEventOnDay(e, date));
                  return (
                     <div 
                         key={colIndex} 
                         className="flex-1 border-r border-gray-100 relative min-w-[100px]"
                         onMouseMove={(e) => {
-                            // Calculate approximate time slot under mouse
                             const rect = e.currentTarget.getBoundingClientRect();
-                            const y = e.clientY - rect.top + e.currentTarget.scrollTop; // Simplified
+                            const y = e.clientY - rect.top + e.currentTarget.scrollTop;
                             const hour = Math.floor(y / 64);
                             const minute = Math.floor((y % 64) / 16) * 15;
                             const slot = new Date(date);
                             slot.setHours(hour, minute);
                             handleGridMouseMove(e, slot);
                         }}
+                        onClick={(e) => {
+                             // Create event on click
+                             if (isSelectionMode || draggedEventId) return;
+                             const rect = e.currentTarget.getBoundingClientRect();
+                             const y = e.clientY - rect.top + e.currentTarget.scrollTop;
+                             const hour = Math.floor(y / 64);
+                             const start = new Date(date);
+                             start.setHours(hour, 0, 0, 0);
+                             const end = new Date(start);
+                             end.setHours(hour + 1);
+                             setEditingEvent({ start, end, title: '', isAllDay: false, color: 'bg-purple-200 text-purple-800' });
+                             setIsCreateModalOpen(true);
+                        }}
                     >
                        {hours.map(h => <div key={h} className="h-16 border-b border-gray-100" />)}
                        
                        {dayEvents.map(e => {
-                          const top = (e.start.getHours() * 64) + (e.start.getMinutes() / 60 * 64);
-                          const durationHrs = (e.end.getTime() - e.start.getTime()) / 3600000;
-                          const height = Math.max(durationHrs * 64, 20);
+                          // Calculate display properties for split multi-day
+                          const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+                          const dayEnd = new Date(date); dayEnd.setHours(23,59,59,999);
+                          
+                          const effectiveStart = e.start < dayStart ? dayStart : e.start;
+                          const effectiveEnd = e.end > dayEnd ? dayEnd : e.end;
+                          
+                          const startHour = effectiveStart.getHours() + (effectiveStart.getMinutes() / 60);
+                          const endHour = effectiveEnd.getHours() === 0 && effectiveEnd.getDate() !== effectiveStart.getDate() ? 24 : effectiveEnd.getHours() + (effectiveEnd.getMinutes() / 60);
+                          
+                          const top = startHour * 64;
+                          const height = Math.max((endHour - startHour) * 64, 20);
+
                           const isConflict = checkConflicts(e);
                           const isSelected = selectedEvents.includes(e.id);
 
@@ -354,18 +563,17 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                              <div 
                                 key={e.id}
                                 onMouseDown={(ev) => handleGridMouseDown(ev, e.id, 'move')}
-                                className={`absolute left-0.5 right-0.5 rounded-md text-xs overflow-hidden border-l-4 transition-all z-10 
+                                onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    setEditingEvent(e);
+                                    setIsCreateModalOpen(true);
+                                }}
+                                className={`absolute left-0.5 right-0.5 rounded-md text-xs overflow-hidden border-l-4 transition-all z-10 cursor-pointer
                                     ${e.color} ${isConflict ? 'ring-2 ring-red-400' : ''} ${isSelected ? 'ring-2 ring-blue-500 scale-[1.02] shadow-lg' : 'shadow-sm'}
                                     ${e.status === 'cancelled' ? 'opacity-50 grayscale' : ''}
-                                    ${e.status === 'tentative' ? 'bg-[length:10px_10px] bg-[linear-gradient(45deg,rgba(255,255,255,.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,.2)_50%,rgba(255,255,255,.2)_75%,transparent_75%,transparent)]' : ''}
                                 `}
                                 style={{ top: `${top}px`, height: `${height}px` }}
                              >
-                                {/* Buffer Time Visualization */}
-                                {e.bufferMinutes && (
-                                    <div className="absolute top-0 left-0 w-full bg-black/10" style={{ height: `${(e.bufferMinutes / 60) * 64}px` }} />
-                                )}
-
                                 <div className="p-1.5 h-full flex flex-col">
                                     <div className="flex justify-between items-start">
                                         <div className="font-bold truncate flex items-center gap-1">
@@ -373,12 +581,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                             {getIconForEvent(e)}
                                             {e.title}
                                         </div>
-                                        {e.isPrivate && <EyeOff size={10} className="opacity-50" />}
                                     </div>
                                     <div className="opacity-80 text-[10px]">{formatTime(e.start)} - {formatTime(e.end)}</div>
                                 </div>
                                 
-                                {/* Resize Handle */}
                                 <div 
                                     className="absolute bottom-0 left-0 w-full h-3 cursor-ns-resize hover:bg-black/10 flex justify-center items-end pb-0.5"
                                     onMouseDown={(ev) => handleGridMouseDown(ev, e.id, 'resize')}
@@ -397,6 +603,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
     );
   };
 
+  // 5. Month View
   const renderMonthView = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -404,45 +611,57 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
     const startDay = getDayOfWeek(year, month, 1);
     
     return (
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 select-none">
-        <div className="grid grid-cols-7 bg-purple-50/50 border-b border-gray-200">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 select-none h-[calc(100vh-250px)] flex flex-col">
+        <div className="grid grid-cols-7 bg-purple-50/50 border-b border-gray-200 shrink-0">
           {['S','M','T','W','T','F','S'].map(d => <div key={d} className="py-2 text-center text-xs font-bold text-gray-500">{d}</div>)}
         </div>
-        <div className="grid grid-cols-7">
-          {Array.from({length: startDay}).map((_, i) => <div key={`empty-${i}`} className="h-24 border-b border-r border-gray-100" />)}
+        <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+          {Array.from({length: startDay}).map((_, i) => <div key={`empty-${i}`} className="border-b border-r border-gray-100" />)}
           {Array.from({length: daysInMonth}).map((_, i) => {
               const d = i + 1;
               const date = new Date(year, month, d);
-              const dayEvents = events.filter(e => isSameDay(e.start, date));
+              const dayEvents = events.filter(e => isEventOnDay(e, date));
               const isToday = isSameDay(date, new Date());
               return (
-                  <div key={d} className="min-h-[6rem] p-1 border-b border-r border-gray-100 transition-colors hover:bg-purple-50"
+                  <div key={d} className="p-1 border-b border-r border-gray-100 transition-colors hover:bg-purple-50 overflow-hidden flex flex-col"
                       onClick={() => {
                            if (isSelectionMode) return;
-                           setEditingEvent({ start: date, end: date, title: '', isAllDay: true, color: 'bg-purple-200 text-purple-800' });
+                           const start = new Date(year, month, d);
+                           start.setHours(9, 0, 0, 0);
+                           const end = new Date(start);
+                           end.setHours(10, 0, 0, 0);
+                           setEditingEvent({ start, end, title: '', isAllDay: false, color: 'bg-purple-200 text-purple-800' });
                            setIsCreateModalOpen(true);
                       }}
                   >
-                      <div className="flex justify-center mb-1">
+                      <div className="flex justify-center mb-1 shrink-0">
                           <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-brand-primary text-white' : 'text-gray-700'}`}>{d}</span>
                       </div>
-                      <div className="flex flex-col gap-1">
-                          {dayEvents.slice(0, 3).map(e => (
-                              <div key={e.id} 
-                                   onClick={(ev) => {
-                                       ev.stopPropagation();
-                                       if (isSelectionMode) toggleSelection(e.id);
-                                       else {
-                                           setEditingEvent(e);
-                                           setIsCreateModalOpen(true);
-                                       }
-                                   }}
-                                   className={`text-[9px] truncate px-1 py-0.5 rounded-sm font-medium ${e.color} cursor-pointer ${selectedEvents.includes(e.id) ? 'ring-2 ring-blue-400' : ''}`}
-                              >
-                                  {e.title}
-                              </div>
-                          ))}
-                          {dayEvents.length > 3 && <div className="text-[9px] text-gray-400 text-center">+{dayEvents.length - 3} more</div>}
+                      <div className="flex flex-col gap-1 overflow-y-auto no-scrollbar">
+                          {dayEvents.slice(0, 4).map(e => {
+                              const isStart = isSameDay(e.start, date);
+                              const isEnd = isSameDay(e.end, date);
+                              
+                              return (
+                                  <div key={e.id} 
+                                       onClick={(ev) => {
+                                           ev.stopPropagation();
+                                           if (isSelectionMode) toggleSelection(e.id);
+                                           else {
+                                               setEditingEvent(e);
+                                               setIsCreateModalOpen(true);
+                                           }
+                                       }}
+                                       className={`text-[9px] truncate px-1 py-0.5 font-medium cursor-pointer ${e.color} 
+                                         ${!isStart ? 'rounded-l-none border-l-0 -ml-1 pl-2' : 'rounded-l-sm'} 
+                                         ${!isEnd ? 'rounded-r-none border-r-0 -mr-1 pr-2' : 'rounded-r-sm'}
+                                         ${selectedEvents.includes(e.id) ? 'ring-2 ring-blue-400' : ''}`}
+                                  >
+                                      {isStart && e.title}
+                                  </div>
+                              );
+                          })}
+                          {dayEvents.length > 4 && <div className="text-[8px] text-gray-400 text-center">+{dayEvents.length - 4}</div>}
                       </div>
                   </div>
               );
@@ -452,8 +671,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
     );
   };
 
-  // --- UI Components ---
-
   return (
     <div className="flex flex-col min-h-screen bg-[#F9F5F9] relative overflow-hidden">
       
@@ -461,9 +678,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
       <div className="bg-[#5D3F6A] text-white p-4 pt-8 rounded-b-[2rem] shadow-xl z-20 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full"><ArrowLeft size={20} /></button>
-          <div className="flex flex-col items-center">
-             <h1 className="font-cursive text-xl tracking-wide opacity-90">
-                {currentView.charAt(0).toUpperCase() + currentView.slice(1)}
+          <div className="flex flex-col items-center cursor-pointer" onClick={() => setShowViewMenu(true)}>
+             <h1 className="font-cursive text-xl tracking-wide opacity-90 flex items-center gap-2">
+                {currentView.charAt(0).toUpperCase() + currentView.slice(1)} <ChevronLeft size={14} className="-rotate-90"/>
              </h1>
           </div>
           <div className="flex gap-2">
@@ -479,7 +696,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
             <ChevronLeft size={24} />
           </button>
           <h2 className="text-lg font-bold tracking-wide text-brand-accent/90">
-             {currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+             {currentView === 'year' 
+                ? currentDate.getFullYear() 
+                : currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
           </h2>
           <button onClick={() => setCurrentDate(prev => currentView === 'month' ? addMonths(prev, 1) : addDays(prev, 7))} className="p-1 hover:bg-white/10 rounded-full">
             <ChevronRight size={24} />
@@ -502,6 +721,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
       {/* Main Content */}
       <div className="flex-1 px-4 py-4 overflow-hidden flex flex-col relative z-10">
          {currentView === 'month' && renderMonthView()}
+         {currentView === 'year' && renderYearView()}
+         {currentView === 'agenda' && renderAgendaView()}
+         {currentView === 'schedule' && renderScheduleView()}
          {(currentView === 'week' || currentView === 'workweek' || currentView === 'day' || currentView === '3day') && 
             renderTimeGridView(currentView === 'week' ? 7 : (currentView === 'workweek' ? 5 : (currentView === '3day' ? 3 : 1)))
          }
@@ -538,7 +760,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
       {showViewMenu && (
         <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowViewMenu(false)}>
            <div className="absolute bottom-24 right-6 bg-white p-4 rounded-2xl shadow-xl w-48 flex flex-col gap-2 animate-bounce-in">
-              {['month','week','day','3day','workweek'].map(v => (
+              {['month','week','day','agenda','schedule','year'].map(v => (
                   <button key={v} onClick={() => { setCurrentView(v as ViewType); setShowViewMenu(false); }} className={`p-2 rounded-lg text-left capitalize ${currentView === v ? 'bg-purple-100 text-purple-800' : 'hover:bg-gray-50'}`}>
                       {v} View
                   </button>
@@ -553,7 +775,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col animate-zoom-in overflow-hidden">
                 <div className="bg-[#5D3F6A] p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="text-lg font-bold font-cursive">{editingEvent.id ? 'Edit Event' : 'New Event'}</h3>
-                    <button onClick={() => setIsCreateModalOpen(false)}><X size={20} /></button>
+                    <div className="flex items-center gap-2">
+                         {editingEvent.id && (
+                             <button onClick={handleDeleteEvent} className="hover:bg-white/20 p-2 rounded-full text-red-300 hover:text-red-100">
+                                 <Trash size={18} />
+                             </button>
+                         )}
+                         <button onClick={() => setIsCreateModalOpen(false)}><X size={20} /></button>
+                    </div>
                 </div>
                 
                 {/* Tabs */}
@@ -685,7 +914,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                 />
                                 <div className="flex flex-col gap-1">
                                     {editingEvent.attachments?.map((link, i) => (
-                                        <div key={i} className="text-xs text-blue-500 truncate bg-blue-50 p-1 rounded px-2">{link}</div>
+                                        <div key={i} className="flex justify-between items-center text-xs text-blue-500 bg-blue-50 p-1 rounded px-2">
+                                            <span className="truncate flex-1">{link}</span>
+                                            <a href={link} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-blue-600"><ExternalLink size={12}/></a>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -786,11 +1018,15 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
 
                             <div className="p-3 bg-gray-50 rounded-xl">
                                 <span className="text-sm font-bold text-gray-600 flex items-center gap-2 mb-2"><Bell size={16}/> Reminders</span>
-                                <select className="w-full p-2 rounded-lg border border-gray-200 bg-white">
-                                    <option>None</option>
-                                    <option>5 minutes before</option>
-                                    <option>1 hour before</option>
-                                    <option>1 day before</option>
+                                <select 
+                                    className="w-full p-2 rounded-lg border border-gray-200 bg-white"
+                                    value={editingEvent.reminders?.[0] || 0}
+                                    onChange={e => setEditingEvent({...editingEvent, reminders: [parseInt(e.target.value)]})}
+                                >
+                                    <option value="0">None</option>
+                                    <option value="5">5 minutes before</option>
+                                    <option value="60">1 hour before</option>
+                                    <option value="1440">1 day before</option>
                                 </select>
                             </div>
                         </div>
