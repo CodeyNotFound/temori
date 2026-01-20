@@ -111,7 +111,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         <div className="animate-zoom-in">
            <BearLogo />
         </div>
-        <h1 className="font-cursive text-5xl md:text-7xl mt-8 mb-4 tracking-wide drop-shadow-lg bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
+        <h1 className="font-cursive text-5xl md:text-7xl mt-8 mb-4 tracking-wide drop-shadow-lg text-white pb-2">
           Temori: Your Life, Organized
         </h1>
         <p className="text-xl md:text-2xl text-white/70 mb-8 max-w-2xl font-light">

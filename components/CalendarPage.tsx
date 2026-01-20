@@ -788,7 +788,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                 <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowViewMenu(false)}>
                     <div className="absolute bottom-24 right-6 bg-white p-4 rounded-2xl shadow-xl w-48 flex flex-col gap-2 animate-bounce-in">
                         {['month', 'week', 'day', 'agenda', 'schedule', 'year'].map(v => (
-                            <button key={v} onClick={() => { setCurrentView(v as ViewType); setShowViewMenu(false); }} className={`p-2 rounded-lg text-left capitalize ${currentView === v ? 'bg-purple-100 text-purple-800' : 'hover:bg-gray-50'}`}>
+                            <button key={v} onClick={() => { setCurrentView(v as ViewType); setShowViewMenu(false); }} className={`p-2 rounded-lg text-left capitalize ${currentView === v ? 'bg-purple-100 text-purple-800' : 'text-gray-700 hover:bg-gray-50'}`}>
                                 {v} View
                             </button>
                         ))}
@@ -801,7 +801,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col animate-zoom-in overflow-hidden">
                         <div className="bg-[#5D3F6A] p-4 flex justify-between items-center text-white shrink-0">
-                            <h3 className="text-lg font-bold font-cursive">{editingEvent.id ? 'Edit Event' : 'New Event'}</h3>
+                            <h3 className="text-xl font-bold font-sans">{editingEvent.id ? 'Edit Event' : 'New Event'}</h3>
                             <div className="flex items-center gap-2">
                                 {editingEvent.id && (
                                     <button onClick={handleDeleteEvent} className="hover:bg-white/20 p-2 rounded-full text-red-300 hover:text-red-100">
@@ -835,7 +835,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                         placeholder="Event Title"
                                         value={editingEvent.title}
                                         onChange={e => setEditingEvent({ ...editingEvent, title: e.target.value })}
-                                        className="text-2xl font-bold outline-none placeholder-gray-300 w-full border-b border-gray-100 pb-2 focus:border-brand-primary"
+                                        className="text-2xl font-bold outline-none placeholder-gray-300 w-full border-b border-gray-100 pb-2 focus:border-brand-primary bg-transparent text-gray-900"
                                         autoFocus
                                     />
 
@@ -846,7 +846,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                                 type="datetime-local"
                                                 value={editingEvent.start ? new Date(editingEvent.start.getTime() - (editingEvent.start.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''}
                                                 onChange={e => setEditingEvent({ ...editingEvent, start: new Date(e.target.value) })}
-                                                className="w-full bg-gray-50 p-2 rounded-lg text-sm border border-gray-100"
+                                                className="w-full bg-white p-2 rounded-lg text-sm border border-gray-200 text-gray-900"
                                             />
                                         </div>
                                         <div className="flex-1">
@@ -855,7 +855,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                                 type="datetime-local"
                                                 value={editingEvent.end ? new Date(editingEvent.end.getTime() - (editingEvent.end.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''}
                                                 onChange={e => setEditingEvent({ ...editingEvent, end: new Date(e.target.value) })}
-                                                className="w-full bg-gray-50 p-2 rounded-lg text-sm border border-gray-100"
+                                                className="w-full bg-white p-2 rounded-lg text-sm border border-gray-200 text-gray-900"
                                             />
                                         </div>
                                     </div>
@@ -867,14 +867,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                         </button>
                                     </div>
 
-                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center gap-2">
+                                    <div className="bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-2">
                                         <MapPin size={16} className="text-gray-400" />
                                         <input
                                             type="text"
                                             placeholder="Add Location"
                                             value={editingEvent.location || ''}
                                             onChange={e => setEditingEvent({ ...editingEvent, location: e.target.value })}
-                                            className="bg-transparent outline-none text-sm w-full"
+                                            className="bg-transparent outline-none text-sm w-full text-gray-900"
                                         />
                                     </div>
 
@@ -895,7 +895,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                     <div className="mt-2">
                                         <label className="text-xs font-bold text-gray-400 mb-1 block">Templates</label>
                                         <select
-                                            className="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-100"
+                                            className="w-full p-2 bg-white rounded-lg text-sm border border-gray-200 text-gray-900"
                                             onChange={(e) => {
                                                 if (!e.target.value) return;
                                                 const now = new Date();
@@ -919,7 +919,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                         <textarea
                                             value={editingEvent.description || ''}
                                             onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })}
-                                            className="w-full bg-gray-50 p-3 rounded-xl text-sm border border-gray-100 h-24 resize-none outline-none focus:border-brand-primary"
+                                            className="w-full bg-white p-3 rounded-xl text-sm border border-gray-200 h-24 resize-none outline-none focus:border-brand-primary text-gray-900"
                                             placeholder="Add notes, agenda, etc."
                                         />
                                     </div>
@@ -929,7 +929,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                         <input
                                             type="text"
                                             placeholder="Paste URL here..."
-                                            className="w-full bg-gray-50 p-2 rounded-lg text-sm border border-gray-100 mb-2"
+                                            className="w-full bg-white p-2 rounded-lg text-sm border border-gray-200 mb-2 text-gray-900"
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
@@ -962,7 +962,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                         <input
                                             type="text"
                                             placeholder="Add name and press Enter..."
-                                            className="w-full bg-gray-50 p-2 rounded-lg text-sm border border-gray-100 mb-2"
+                                            className="w-full bg-white p-2 rounded-lg text-sm border border-gray-200 mb-2 text-gray-900"
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
@@ -1047,14 +1047,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                             type="number"
                                             value={editingEvent.bufferMinutes || 0}
                                             onChange={e => setEditingEvent({ ...editingEvent, bufferMinutes: parseInt(e.target.value) })}
-                                            className="w-full p-2 rounded-lg border border-gray-200"
+                                            className="w-full p-2 rounded-lg border border-gray-200 bg-white text-gray-900"
                                         />
                                     </div>
 
                                     <div className="p-3 bg-gray-50 rounded-xl">
                                         <span className="text-sm font-bold text-gray-600 flex items-center gap-2 mb-2"><Bell size={16} /> Reminders</span>
                                         <select
-                                            className="w-full p-2 rounded-lg border border-gray-200 bg-white"
+                                            className="w-full p-2 rounded-lg border border-gray-200 bg-white text-gray-900"
                                             value={editingEvent.reminders?.[0] || 0}
                                             onChange={e => setEditingEvent({ ...editingEvent, reminders: [parseInt(e.target.value)] })}
                                         >
@@ -1068,7 +1068,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                     <div className="p-3 bg-gray-50 rounded-xl">
                                         <span className="text-sm font-bold text-gray-600 flex items-center gap-2 mb-2"><CalendarIcon size={16} /> Repeat</span>
                                         <select
-                                            className="w-full p-2 rounded-lg border border-gray-200 bg-white"
+                                            className="w-full p-2 rounded-lg border border-gray-200 bg-white text-gray-900"
                                             value={editingEvent.recurrence || 'none'}
                                             onChange={e => setEditingEvent({ ...editingEvent, recurrence: e.target.value as RecurrenceType })}
                                         >
@@ -1083,7 +1083,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                                                 <label className="text-xs font-bold text-gray-500 block mb-1">End Date (optional)</label>
                                                 <input
                                                     type="date"
-                                                    className="w-full p-2 rounded-lg border border-gray-200 text-sm"
+                                                    className="w-full p-2 rounded-lg border border-gray-200 text-sm bg-white text-gray-900"
                                                     value={editingEvent.recurrenceEndDate ? new Date(editingEvent.recurrenceEndDate.getTime() - (editingEvent.recurrenceEndDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 10) : ''}
                                                     onChange={e => setEditingEvent({ ...editingEvent, recurrenceEndDate: e.target.value ? new Date(e.target.value) : undefined })}
                                                 />
@@ -1113,7 +1113,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onBack }) => {
                             <input
                                 type="text"
                                 placeholder="Search events by title, location, or tags..."
-                                className="flex-1 outline-none text-lg"
+                                className="flex-1 outline-none text-lg bg-transparent text-gray-900 placeholder-gray-400"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 autoFocus
